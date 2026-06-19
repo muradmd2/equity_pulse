@@ -251,10 +251,6 @@ faiss/
 index/
 storage/
 
-# Model downloads
-models/
-checkpoints/
-
 # Application data
 data/
 artifacts/

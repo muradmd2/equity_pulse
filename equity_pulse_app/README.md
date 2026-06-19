@@ -41,17 +41,90 @@ SQLite checkpointing stores graph state by thread_id/session_id.
 
 ## Setup
 
-From the `financial_ai_app` directory:
+The commands below use PowerShell. Run them from the repository root.
+
+### 1. Open the application directory
+
+```powershell
+Set-Location .\equity_pulse_app
+```
+
+The application reads `.env` and creates its SQLite checkpoint database relative
+to this directory, so run the remaining commands here.
+
+### 2. Create and activate a Python environment
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
-pip install -r requirements.txt
-Copy-Item .env.example .env
 ```
 
-Fill in `.env` with your own keys and contact information. Do not commit real API keys.
+If PowerShell blocks the activation script, allow scripts for the current shell and
+try again:
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\.venv\Scripts\Activate.ps1
+```
+
+Python 3.11 or newer is required.
+
+### 3. Install the dependencies
+
+```powershell
+python -m pip install -r requirements.txt
+```
+
+### 4. Create `.env`
+
+
+Add the following configuration and replace the placeholder values in .env file:
+
+```dotenv
+# Required for LLM classification, summarization, and review
+OPENAI_API_KEY=your_openai_api_key
+OPENAI_MODEL=gpt-5-nano
+
+# Required for web/news retrieval and Finnhub market data
+TAVILY_API_KEY=your_tavily_api_key
+FINNHUB_API_KEY=your_finnhub_api_key
+
+# SEC EDGAR requires a descriptive User-Agent with real contact information
+SEC_USER_AGENT="EquityPulse/1.0 your-email@example.com"
+
+# Optional: only provide LANGSMITH_API_KEY when tracing is enabled
+LANGSMITH_TRACING=false
+LANGSMITH_API_KEY=
+LANGSMITH_PROJECT=financial-langgraph-learning-app
+```
+
+OpenAI, Tavily, and Finnhub require API keys for their provider-backed features.
+LangSmith is optional: leave `LANGSMITH_TRACING=false` and
+`LANGSMITH_API_KEY` empty if you do not use it. yfinance does not require an API
+key. Never commit `.env` or paste real keys into source files.
+
+### 5. Launch FastAPI and the UI
+
+Start the application from `equity_pulse_app`:
+
+```powershell
+python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+```
+
+Then open:
+
+- Web UI: `http://127.0.0.1:8000/`
+- Interactive API documentation: `http://127.0.0.1:8000/docs`
+- Configuration health check: `http://127.0.0.1:8000/health`
+
+Keep this terminal running while using the app. Press `Ctrl+C` to stop it.
+
+> **Streamlit status:** This repository does not currently contain a Streamlit
+> entry point or the `streamlit` package. Its included UI is the HTML interface
+> served directly by FastAPI at `/`; no second UI process is required. A command
+> such as `streamlit run streamlit_app.py` will not work unless a Streamlit app is
+> added to the project.
 
 ## Environment Variables
 
