@@ -1,0 +1,901 @@
+Requirement Document: AI Financial Research App Using LangGraph
+1. Goal
+Build an educational AI financial research application to learn:
+	• LangGraph
+	• Agentic workflows
+	• Multi-node graph orchestration
+	• Parallel node execution
+	• Tool-based financial data retrieval
+	• LLM-based routing, summarization, and review
+	• Streaming responses
+	• LangSmith observability
+	• Checkpointing with SQLite
+The app should accept a user’s financial query, classify the query into one or more financial research categories, run the relevant category nodes in parallel, summarize the collected information, review the answer for missing pieces, optionally regenerate once, and return a source-cited final response.
+This app is for learning and research only. It must not provide personalized investment advice.
+
+2. Primary User Flow
+	1. User enters a financial query.
+	2. The graph receives the query.
+	3. The first node classifies the query into one or more categories.
+	4. The graph generates category-specific subqueries.
+	5. Relevant category nodes run in parallel.
+	6. Each category node retrieves data from the appropriate external source.
+	7. Retrieved data is normalized into a common result format.
+	8. The summary node combines all results into a concise response.
+	9. The review node checks whether the answer fully addresses the original user query.
+	10. If the review finds missing information and this is the first review attempt:
+		○ Stream the message: Review failed. Regenerating the response.
+		○ Rewrite the query.
+		○ Send the rewritten query back to the classification node.
+		○ Run the graph again for the missing categories only when possible.
+	11. On the second summary pass, combine the first summary and second summary.
+	12. Do not run the review node a second time.
+	13. Return the final response with citations.
+
+3. Query Categories
+The classification node should identify one or more of the following categories:
+	1. Company information
+	2. Competitor news
+	3. Sector news
+	4. Financials
+	5. Company news
+	6. Current stock price
+	7. Analyst ratings
+	8. Latest report release
+	9. Dow Jones index
+	10. Technical analysis
+The classifier must support multi-category queries.
+Example:
+User query:
+	How is CRM stock doing today and what do analysts think about it?
+Expected categories:
+	• Current stock price
+	• Analyst ratings
+	• Company news, if the query asks “why” or “what happened today”
+
+4. Technology Stack
+Use the following stack:
+	• Python 3.11+
+	• LangGraph
+	• LangChain / LangChain OpenAI integration
+	• OpenAI LLM
+	• Tavily
+	• yfinance
+	• Finnhub
+	• SEC EDGAR APIs
+	• LangSmith
+	• SQLite checkpointer using SqliteSaver
+	• FastAPI for API layer
+	• Optional simple Streamlit or basic HTML frontend
+	• Pydantic for structured models
+	• pytest for tests
+	• python-dotenv for local environment variables
+	• httpx or requests for external API calls
+	• pandas / numpy for financial calculations
+	• tenacity for retries
+
+5. Environment Variables
+The app should read all secrets and config from environment variables.
+Required:
+OPENAI_API_KEY=
+TAVILY_API_KEY=
+FINNHUB_API_KEY=
+LANGSMITH_API_KEY=
+LANGSMITH_TRACING=true
+LANGSMITH_PROJECT=financial-langgraph-learning-app
+SEC_USER_AGENT="FinancialLangGraphLearningApp/1.0 contact@email.com"
+Optional:
+APP_ENV=local
+LOG_LEVEL=INFO
+MAX_REVIEW_ATTEMPTS=1
+DEFAULT_LOOKBACK_DAYS=30
+TECHNICAL_ANALYSIS_LOOKBACK_DAYS=180
+
+6. Data Sources and Responsibilities
+6.1 yfinance
+Use yfinance for:
+	1. Stock quote
+	2. Historical prices
+	3. Basic financials
+	4. Market cap
+	5. Company info
+	6. Dividends and splits
+	7. Dow Jones index data using ticker ^DJI
+	8. Technical analysis input data
+Example node usage:
+	• Current stock price node
+	• Company information node
+	• Financials node
+	• Technical analysis node
+	• Dow Jones index node
+
+6.2 Tavily
+Use Tavily for:
+	1. Recent financial news
+	2. Company event search
+	3. Analyst article discovery
+	4. Web page extraction
+	5. Filing or transcript page discovery
+	6. Source-grounded summaries
+	7. Competitor news
+	8. Sector news
+	9. Recent company developments
+Tavily queries should be concise and search-oriented, not long prompts.
+Example:
+Salesforce latest earnings analyst rating stock news 2026
+Do not send a long LLM-style instruction as a Tavily query.
+
+6.3 SEC EDGAR APIs
+Use SEC EDGAR APIs for:
+	1. 10-K retrieval
+	2. 10-Q retrieval
+	3. 8-K retrieval
+	4. Company facts
+	5. XBRL financial statement data
+	6. Risk factor extraction
+	7. Management discussion analysis
+	8. Latest report release detection
+Requirements:
+	• Include a valid SEC-compatible User-Agent header.
+	• Implement basic rate limiting.
+	• Support ticker-to-CIK mapping.
+	• Store filing metadata:
+		○ form type
+		○ filing date
+		○ accession number
+		○ report period
+		○ filing URL
+	• Prefer official SEC data for filings over general web search.
+
+6.4 Finnhub
+Use Finnhub for:
+	1. Recommendation trends
+	2. Price targets
+	3. Earnings calendar
+	4. Company news
+	5. Quote data fallback
+	6. Company fundamentals fallback
+	7. Analyst-related data
+Use Finnhub especially for the Analyst ratings node.
+
+7. Graph Design
+Use LangGraph StateGraph.
+7.1 Graph Nodes
+Required nodes:
+	1. classify_query_node
+	2. build_subqueries_node
+	3. company_info_node
+	4. competitor_news_node
+	5. sector_news_node
+	6. financials_node    
+	7. company_news_node
+	8. current_stock_price_node
+	9. analyst_ratings_node
+	10. latest_report_release_node
+	11. dow_jones_index_node
+	12. technical_analysis_node
+	13. aggregate_results_node
+	14. summary_node
+	15. review_node
+	16. rewrite_query_node
+	17. final_response_node
+
+8. Graph Flow
+Implement the graph as follows:
+START
+  -> classify_query_node
+  -> build_subqueries_node
+  -> dynamic parallel category nodes
+  -> aggregate_results_node
+  -> summary_node
+  -> conditional:
+       if review_attempted == false:
+           review_node
+       else:
+           final_response_node
+review_node
+  -> conditional:
+       if missing_info_found == true and review_attempted == false:
+           rewrite_query_node
+       else:
+           final_response_node
+rewrite_query_node
+  -> classify_query_node
+final_response_node
+  -> END
+Important:
+	• The review node must run at most once.
+	• Use a state field such as review_attempted: bool.
+	• Use a state field such as iteration: int.
+	• On regeneration, set:
+		○ review_attempted = true
+		○ iteration = 2
+	• After the second summary, route directly to final_response_node.
+
+9. Parallel Execution Requirement
+After classification, the graph should route to all relevant category nodes.
+Use dynamic routing so that only needed nodes execute.
+Example:
+User query:
+Tell me about CRM stock, current price, recent news, financials, and analyst ratings.
+The graph should run these nodes in parallel:
+	• company_info_node
+	• current_stock_price_node
+	• company_news_node
+	• financials_node
+	• analyst_ratings_node
+Do not run unrelated nodes such as Dow Jones or sector news unless classification says they are needed.
+
+10. State Schema
+Create a strongly typed state model.
+Recommended state:
+from typing import TypedDict, Annotated, Literal, Optional
+import operator
+class SourceCitation(TypedDict):
+    source_id: str
+    title: str
+    url: str
+    provider: str
+    published_at: Optional[str]
+    retrieved_at: str
+    snippet: Optional[str]
+class RetrievalResult(TypedDict):
+    category: str
+    subquery: str
+    status: Literal["success", "partial", "failed"]
+    data: dict
+    summary: str
+    citations: list[SourceCitation]
+    errors: list[str]
+class FinancialResearchState(TypedDict):
+    original_query: str
+    active_query: str
+    rewritten_query: Optional[str]
+detected_tickers: list[str]
+    detected_companies: list[str]
+categories: list[str]
+    subqueries: dict[str, str]
+retrieval_results: Annotated[list[RetrievalResult], operator.add]
+    citations: Annotated[list[SourceCitation], operator.add]
+    errors: Annotated[list[str], operator.add]
+    warnings: Annotated[list[str], operator.add]
+first_summary: Optional[str]
+    second_summary: Optional[str]
+    final_summary: Optional[str]
+missing_info_found: bool
+    missing_info: list[str]
+review_attempted: bool
+    iteration: int
+
+11. Classification Node
+The classify_query_node should:
+	1. Accept original_query or active_query.
+	2. Extract ticker symbols.
+	3. Extract company names.
+	4. Determine query categories.
+	5. Return structured JSON.
+Use OpenAI structured output with a Pydantic model.
+Classification output schema:
+class QueryClassification(BaseModel):
+    detected_tickers: list[str]
+    detected_companies: list[str]
+    categories: list[
+        Literal[
+            "company_information",
+            "competitor_news",
+            "sector_news",
+            "financials",
+            "company_news",
+            "current_stock_price",
+            "analyst_ratings",
+            "latest_report_release",
+            "dow_jones_index",
+            "technical_analysis",
+        ]
+    ]
+    reasoning: str
+Requirements:
+	• If no ticker is found, attempt to infer ticker from company name.
+	• If the company name is ambiguous, interrupt and ask for more information.
+	• If the query is broad, select multiple relevant categories.
+	• If the query asks “how is the stock doing,” include:
+		○ current_stock_price
+		○ company_news
+		○ technical_analysis
+	• If the query asks “is it a buy,” include:
+		○ analyst_ratings
+		○ financials
+		○ company_news
+		○ technical_analysis
+
+    In the summary to the user:
+	• Do not provide direct investment advice.
+	• Do not provide factual information unless backed up by the retrieved information.
+    . Do not generate more information than what is requested.  
+    . Keep it concise and up to what is being requested in the initial query.
+    . For providing news, provide only few lines of information and then provide a link to the news article.
+    . For analyst rating, provide only rating unless query asks for detail rating information.
+    . In financial analysis, be brief.
+    . While providing earnings, emphasize on hit or miss.
+
+12. Subquery Builder Node
+The build_subqueries_node should create a concise search or retrieval query for each selected category.
+Example output:
+{
+  "current_stock_price": "CRM current stock quote latest price",
+  "company_news": "CRM Salesforce latest company news last 7 days",
+  "financials": "CRM Salesforce latest quarterly financials revenue net income cash flow",
+  "analyst_ratings": "CRM analyst ratings recommendation trends price target",
+  "technical_analysis": "CRM 180 day historical prices SMA RSI MACD"
+}
+Each category node should receive only its own subquery and relevant ticker/company data.
+
+13. Category Node Requirements
+Each category node must return a RetrievalResult.
+All nodes must:
+	1. Catch exceptions.
+	2. Return partial results when possible.
+	3. Include citations.
+	4. Include provider name.
+	5. Include retrieval timestamp.
+	6. Avoid crashing the whole graph if one data source fails.
+	7. Use fallback providers where appropriate.
+	8. Normalize output into the shared RetrievalResult schema.
+
+13.1 Company Information Node
+Use:
+	• yfinance primary
+	• Tavily fallback
+Return:
+	• company name
+	• ticker
+	• sector
+	• industry
+	• business summary
+	• market cap
+	• employees, if available
+	• headquarters, if available
+	• website, if available
+	• exchange
+
+13.2 Competitor News Node
+Use:
+	• Tavily primary
+	• yfinance sector/industry info for context
+	• Optional Finnhub peers if implemented
+Return:
+	• major competitors
+	• recent competitor developments
+	• competitive risks
+	• source-cited bullets
+
+13.3 Sector News Node
+Use:
+	• Tavily primary
+	• yfinance sector/industry context
+Return:
+	• sector trend summary
+	• recent macro or industry news
+	• major positive drivers
+	• major risks
+	• citations
+
+13.4 Financials Node
+Use:
+	• yfinance primary for quick financials
+	• SEC EDGAR for official filings
+	• Finnhub fallback if needed
+Return:
+	• latest revenue
+	• net income
+	• operating income
+	• gross margin if available
+	• EPS if available
+	• cash flow highlights
+	• balance sheet highlights
+	• revenue growth
+	• profitability trend
+	• filing source references
+
+13.5 Company News Node
+Use:
+	• Tavily primary
+	• Finnhub company news fallback
+Return:
+	• recent news summary
+	• key events
+	• sentiment:
+		○ positive
+		○ negative
+		○ mixed
+		○ neutral
+	• publication dates
+	• citations
+
+13.6 Current Stock Price Node
+Use:
+	• yfinance primary
+	• Finnhub quote fallback
+Return:
+	• current price
+	• day change
+	• percent change
+	• previous close
+	• open
+	• day high
+	• day low
+	• volume
+	• market timestamp
+	• data source
+Include a warning if market data appears delayed.
+
+13.7 Analyst Ratings Node
+Use:
+	• Finnhub primary
+	• Tavily for analyst article discovery
+Return:
+	• recommendation trend
+	• buy / hold / sell counts, if available
+	• consensus rating, if available
+	• price target, if available
+	• upside/downside versus current price, if available
+	• recent analyst commentary with citations
+
+13.8 Latest Report Release Node
+Use:
+	• SEC EDGAR primary
+	• Tavily fallback
+Return:
+	• latest 10-K
+	• latest 10-Q
+	• latest 8-K
+	• filing date
+	• report period
+	• accession number
+	• filing URL
+	• concise filing summary
+
+13.9 Dow Jones Index Node
+Use:
+	• yfinance ticker ^DJI
+	• Tavily for Dow Jones news if query asks why it moved
+Return:
+	• latest Dow Jones level
+	• daily change
+	• percent change
+	• trend over selected period
+	• major market news, if requested
+
+13.10 Technical Analysis Node
+Use:
+	• yfinance historical price data
+Calculate:
+	• 20-day simple moving average
+	• 50-day simple moving average
+	• 200-day simple moving average if enough data exists
+	• RSI 14
+	• MACD
+	• recent volatility
+	• support/resistance approximation
+	• trend:
+		○ bullish
+		○ bearish
+		○ neutral
+		○ mixed
+Important:
+	• Technical analysis must be descriptive, not predictive.
+	• Include a disclaimer that technical indicators are not investment advice.
+	• If insufficient historical data is available, return partial results.
+
+14. Aggregation Node
+The aggregate_results_node should:
+	1. Collect all category node outputs.
+	2. Separate successful, partial, and failed results.
+	3. Deduplicate citations.
+	4. Deduplicate repeated facts.
+	5. Preserve category labels.
+	6. Preserve source metadata.
+	7. Pass normalized data to the summary node.
+If some nodes fail, continue with available results.
+
+15. Summary Node
+The summary_node should:
+	1. Stream the answer progressively.
+	2. Summarize all collected category outputs.
+	3. Be concise but complete.
+	4. Include citations inline or in a final source list.
+	5. Mention data limitations.
+	6. Avoid unsupported conclusions.
+	7. Avoid personalized financial advice.
+	8. Combine first and second summaries if regeneration occurred.
+The summary should include these sections when relevant:
+## Quick Answer
+## Stock Snapshot
+## Company Overview
+## Recent News
+## Financials
+## Analyst View
+## Technical Picture
+## Sector / Competitor Context
+## Latest SEC Filings
+## Risks and Limitations
+## Sources
+Only include sections relevant to the user’s query.
+
+16. Streaming Requirement
+The app should not wait until the full graph finishes before showing output.
+Implement streaming using LangGraph streaming.
+The app should stream:
+	1. Node progress updates
+	2. Summary tokens
+	3. Review failure message
+	4. Final answer
+Example streamed events:
+Analyzing query...
+Detected categories: current stock price, company news, analyst ratings
+Fetching stock quote...
+Searching recent company news...
+Retrieving analyst ratings...
+Summarizing results...
+Review failed. Regenerating the response.
+Fetching missing financials...
+Finalizing response...
+For the final response, stream the summary node’s LLM output token-by-token where possible.
+
+17. Review Node
+The review_node should compare:
+	• original user query
+	• detected categories
+	• retrieved results
+	• summary output
+It should determine:
+	1. Was the original query answered?
+	2. Are any requested categories missing?
+	3. Are citations missing?
+	4. Are important ticker/company details missing?
+	5. Did any failed node cause a major gap?
+Review output schema:
+class ReviewResult(BaseModel):
+    missing_info_found: bool
+    missing_info: list[str]
+    rewritten_query: str | None
+    reasoning: str
+Rules:
+	• If no major gap exists, go to final response.
+	• If a major gap exists and review_attempted == false, route to rewrite node.
+	• If review_attempted == true, skip review and go to final response.
+	• Never allow infinite review loops.
+
+18. Rewrite Query Node
+The rewrite_query_node should:
+	1. Use the original query.
+	2. Use the review result.
+	3. Generate a focused rewritten query for missing information only.
+	4. Set review_attempted = true.
+	5. Set iteration = 2.
+	6. Preserve first-pass results and first summary.
+	7. Stream:
+Review failed. Regenerating the response.
+Example:
+Original query:
+Tell me about CRM financials and analyst ratings.
+First pass missed financials.
+Rewritten query:
+CRM latest quarterly financials revenue net income operating income cash flow SEC 10-Q
+
+19. Final Response Node
+The final_response_node should:
+	1. Combine first and second summaries if regeneration occurred.
+	2. Include source citations.
+	3. Include warnings and limitations.
+	4. Include failed-source notices if important.
+	5. Include educational disclaimer.
+Final disclaimer:
+This is for educational research only and is not personalized financial advice.
+
+20. Citation Requirements
+Every external fact should be traceable to a source.
+Each citation should include:
+	• provider
+	• source title
+	• URL if available
+	• published date if available
+	• retrieved timestamp
+	• snippet or short evidence text
+Final response should include a Sources section.
+Example:
+## Sources
+1. yfinance - CRM quote data - retrieved 2026-06-11 15:30 CT
+2. SEC EDGAR - Salesforce 10-Q, filed 2026-xx-xx - URL
+3. Tavily - Reuters article about Salesforce earnings - published 2026-xx-xx - URL
+4. Finnhub - CRM recommendation trends - retrieved 2026-06-11 15:31 CT
+Do not invent citations.
+If a fact cannot be sourced, either omit it or label it as unavailable.
+
+21. Error Handling
+The app should handle:
+	1. Invalid ticker
+	2. Ambiguous company name
+	3. API key missing
+	4. API rate limit
+	5. Empty Tavily response
+	6. yfinance missing fields
+	7. SEC ticker-to-CIK failure
+	8. Finnhub quota failure
+	9. Network timeout
+	10. Partial data availability
+	11. LLM classification failure
+	12. LLM malformed JSON response
+Each node should return a partial RetrievalResult instead of crashing the graph where possible.
+Example:
+{
+  "category": "analyst_ratings",
+  "status": "failed",
+  "data": {},
+  "summary": "Analyst ratings could not be retrieved because Finnhub returned an error.",
+  "citations": [],
+  "errors": ["Finnhub API rate limit exceeded"]
+}
+
+22. Guardrails
+The app must:
+	1. Not provide personalized investment advice.
+	2. Not say “you should buy” or “you should sell.”
+	3. Use language like:
+		○ “Analysts currently rate...”
+		○ “The data suggests...”
+		○ “Risks include...”
+		○ “This may be worth researching further...”
+	4. Clearly separate facts from interpretation.
+	5. Mention data freshness.
+	6. Mention when market data may be delayed.
+	7. Avoid hallucinating unavailable financial metrics.
+	8. Avoid using unsourced claims.
+	9. Not compare stocks as a recommendation unless the user explicitly asks for a comparison.
+	10. Include an educational disclaimer.
+
+23. LangSmith Integration
+Add LangSmith tracing.
+Requirements:
+	1. Enable tracing through environment variables.
+	2. Assign project name:
+		○ financial-langgraph-learning-app
+	3. Trace:
+		○ classification node
+		○ each category node
+		○ summary node
+		○ review node
+		○ rewrite node
+	4. Include metadata:
+		○ original query
+		○ detected tickers
+		○ detected categories
+		○ iteration number
+		○ review attempted
+		○ node name
+	5. Do not log API keys.
+	6. Do not log sensitive user data beyond the financial query.
+
+24. Checkpointing Requirement
+Use LangGraph checkpointing with SQLite.
+Requirements:
+	1. Use SqliteSaver.
+	2. Store checkpoints in a local SQLite database.
+	3. Use a thread_id for each user session.
+	4. Allow resuming a prior session.
+	5. Persist:
+		○ original query
+		○ active query
+		○ detected categories
+		○ retrieval results
+		○ summaries
+		○ review status
+		○ final answer
+Example config:
+config = {
+    "configurable": {
+        "thread_id": session_id
+    }
+}
+
+25. API Requirements
+Build a FastAPI backend.
+Required endpoints:
+POST /query
+Accepts:
+{
+  "query": "How is CRM stock doing today?",
+  "session_id": "optional-session-id"
+}
+Returns either:
+	• streamed response, or
+	• session metadata and final response
+GET /sessions/{session_id}
+Returns prior checkpointed session state.
+GET /health
+Returns app health and missing configuration warnings.
+
+26. Suggested Project Structure
+financial_ai_app/
+  app/
+    main.py
+    config.py
+    graph/
+      state.py
+      builder.py
+      nodes/
+        classify.py
+        build_subqueries.py
+        company_info.py
+        competitor_news.py
+        sector_news.py
+        financials.py
+        company_news.py
+        current_stock_price.py
+        analyst_ratings.py
+        latest_report_release.py
+        dow_jones_index.py
+        technical_analysis.py
+        aggregate.py
+        summarize.py
+        review.py
+        rewrite.py
+        final.py
+    services/
+      yfinance_service.py
+      tavily_service.py
+      sec_edgar_service.py
+      finnhub_service.py
+      openai_service.py
+    models/
+      classification.py
+      review.py
+      citations.py
+      retrieval.py
+    utils/
+      citations.py
+      logging.py
+      rate_limit.py
+      ticker_resolution.py
+      technical_indicators.py
+    tests/
+      test_classification.py
+      test_routing.py
+      test_review_loop.py
+      test_citations.py
+      test_technical_analysis.py
+  .env.example
+  requirements.txt
+  README.md
+
+27. Required Tests
+Add tests for:
+	1. Single-category query routing
+	2. Multi-category query routing
+	3. Invalid ticker handling
+	4. Company-name-to-ticker inference
+	5. Parallel node aggregation
+	6. Review node detects missing category
+	7. Review node regenerates only once
+	8. Second pass skips review node
+	9. Citations are preserved
+	10. Failed category node does not crash graph
+	11. Technical indicators calculate correctly
+	12. Final answer includes educational disclaimer
+	13. LangSmith tracing does not require tests to call external API
+	14. SQLite checkpoint creates and resumes session state
+
+28. Example Queries to Support
+How is CRM stock doing today?
+Expected categories:
+	• current_stock_price
+	• company_news
+	• technical_analysis
+
+What are the financials for ALKT stock?
+Expected categories:
+	• financials
+	• company_information
+	• latest_report_release
+
+Suggest some financial sector stocks that analysts rate as buy.
+Expected categories:
+	• sector_news
+	• analyst_ratings
+	• financials
+Important:
+	• Do not give personalized buy advice.
+	• Rephrase as:
+		○ “Here are financial-sector stocks with favorable analyst ratings based on available data.”
+
+What is the latest report released by Microsoft?
+Expected categories:
+	• latest_report_release
+	• company_information
+
+Why is the Dow Jones moving today?
+Expected categories:
+	• dow_jones_index
+	• sector_news
+	• company_news if relevant market movers are identified
+
+Compare CRM with its competitors based on news and financials.
+Expected categories:
+	• company_information
+	• competitor_news
+	• financials
+	• sector_news
+	• company_news
+
+29. Acceptance Criteria
+The app is complete when:
+	1. User can submit a financial query.
+	2. The graph classifies the query into one or more categories.
+	3. Relevant category nodes run in parallel.
+	4. Data is retrieved from yfinance, Tavily, SEC EDGAR, and Finnhub where appropriate.
+	5. Node failures are handled gracefully.
+	6. Summary output is streamed.
+	7. Review node checks for missing information.
+	8. Review node can trigger exactly one regeneration.
+	9. Second summary combines first-pass and second-pass information.
+	10. Review node does not run a second time.
+	11. Final answer includes citations.
+	12. LangSmith traces are visible.
+	13. SQLite checkpointing works.
+	14. Tests pass.
+	15. README explains setup, API keys, how to run, and example queries.
+
+30. README Requirements
+Create a README with:
+	1. Project overview
+	2. Architecture diagram in text form
+	3. Setup instructions
+	4. Environment variables
+	5. How to run FastAPI app
+	6. How to run tests
+	7. Example queries
+	8. Explanation of LangGraph nodes
+	9. Explanation of streaming
+	10. Explanation of review-and-regenerate loop
+	11. Explanation of LangSmith tracing
+	12. Explanation of SQLite checkpointing
+	13. Limitations
+	14. Educational disclaimer
+
+31. Implementation Priority
+Build in this order:
+	1. State schema
+	2. Classification node
+	3. Static graph with two category nodes
+	4. Dynamic routing to category nodes
+	5. yfinance integration
+	6. Tavily integration
+	7. Aggregation node
+	8. Summary node
+	9. Streaming
+	10. Review node
+	11. Rewrite loop with max one retry
+	12. Finnhub integration
+	13. SEC EDGAR integration
+	14. SQLite checkpointing
+	15. LangSmith metadata
+	16. Tests
+	17. README
+	18. Optional frontend
+
+32. Important Implementation Notes
+	• Use structured LLM outputs wherever possible.
+	• Use deterministic temperature for classification and review.
+	• Prefer temperature=0 for routing and review logic.
+	• Use a slightly higher temperature only for final natural-language summarization if desired.
+	• Keep raw retrieved data separate from LLM-generated summaries.
+	• Never let the LLM invent financial data.
+	• Every node should return structured data.
+	• Every external source response should be traceable.
+	• Keep the system modular so new providers can be added later.
+	• Add comments explaining LangGraph concepts because this is a learning app.
+    • Keep the string literal and LLM instructions in a separate file.
+    • Use constants where you can.
+    
+
+
