@@ -1,0 +1,532 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Financial AI Research</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f7f8fb;
+        --panel: #ffffff;
+        --ink: #1f2937;
+        --muted: #5b6575;
+        --line: #d7dce5;
+        --accent: #0f766e;
+        --accent-strong: #115e59;
+        --danger: #b42318;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--bg);
+        color: var(--ink);
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+          sans-serif;
+      }
+
+      main {
+        width: min(1120px, calc(100% - 32px));
+        margin: 0 auto;
+        padding: 28px 0 36px;
+      }
+
+      header {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 0 0 18px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 28px;
+        font-weight: 700;
+        line-height: 1.2;
+      }
+
+      .subtitle {
+        margin: 6px 0 0;
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      .status {
+        min-width: 148px;
+        color: var(--muted);
+        font-size: 13px;
+        text-align: right;
+      }
+
+      .workspace {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 360px;
+        gap: 18px;
+        margin-top: 22px;
+        align-items: start;
+      }
+
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 18px;
+        box-shadow: 0 1px 2px rgb(31 41 55 / 5%);
+      }
+
+      label {
+        display: block;
+        margin-bottom: 7px;
+        color: var(--muted);
+        font-size: 13px;
+        font-weight: 600;
+      }
+
+      textarea,
+      input {
+        width: 100%;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        color: var(--ink);
+        font: inherit;
+        outline: none;
+      }
+
+      textarea {
+        min-height: 116px;
+        resize: vertical;
+        padding: 12px;
+        line-height: 1.5;
+      }
+
+      input {
+        padding: 10px 11px;
+      }
+
+      textarea:focus,
+      input:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px rgb(15 118 110 / 12%);
+      }
+
+      .controls {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 12px;
+        margin-top: 14px;
+        align-items: end;
+      }
+
+      button {
+        min-height: 42px;
+        border: 0;
+        border-radius: 6px;
+        background: var(--accent);
+        color: white;
+        cursor: pointer;
+        font: inherit;
+        font-weight: 700;
+        padding: 0 18px;
+      }
+
+      button:hover {
+        background: var(--accent-strong);
+      }
+
+      button:disabled {
+        cursor: not-allowed;
+        opacity: 0.64;
+      }
+
+      .button-row {
+        display: flex;
+        gap: 10px;
+      }
+
+      .secondary-button {
+        border: 1px solid var(--line);
+        background: #ffffff;
+        color: var(--ink);
+      }
+
+      .secondary-button:hover {
+        background: #eef2f7;
+      }
+
+      .advanced-controls {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(180px, 240px);
+        gap: 12px;
+        margin-top: 14px;
+        align-items: end;
+      }
+
+      .hidden {
+        display: none;
+      }
+
+      h2 {
+        margin: 0 0 12px;
+        font-size: 16px;
+        line-height: 1.35;
+      }
+
+      .progress-list {
+        display: grid;
+        gap: 8px;
+        min-height: 96px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .progress-list li {
+        border-left: 3px solid var(--accent);
+        color: var(--muted);
+        font-size: 14px;
+        line-height: 1.35;
+        padding: 2px 0 2px 9px;
+      }
+
+      .answer {
+        min-height: 320px;
+        margin: 0;
+        padding: 16px;
+        overflow: auto;
+        white-space: pre-wrap;
+        word-break: break-word;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        background: #fbfcfe;
+        color: var(--ink);
+        font-family:
+          "SFMono-Regular", Consolas, "Liberation Mono", Menlo, ui-monospace, monospace;
+        font-size: 14px;
+        line-height: 1.55;
+      }
+
+      .error {
+        margin: 12px 0 0;
+        color: var(--danger);
+        font-size: 14px;
+      }
+
+      .helper {
+        margin-top: 10px;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.45;
+      }
+
+      .model-status {
+        margin-top: 10px;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.4;
+      }
+
+      @media (max-width: 860px) {
+        header,
+        .controls,
+        .workspace {
+          grid-template-columns: 1fr;
+        }
+
+        header {
+          align-items: flex-start;
+        }
+
+        .status {
+          text-align: left;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div>
+          <h1>Financial AI Research</h1>
+          <p class="subtitle">Educational research summaries with source-grounded results.</p>
+        </div>
+        <div class="status" id="status">Ready</div>
+      </header>
+
+      <section class="workspace" aria-label="Financial research workspace">
+        <div class="panel">
+          <form id="query-form">
+            <label for="query">Financial query</label>
+            <textarea id="query" name="query" required>How is CRM stock doing today?</textarea>
+
+            <div class="controls">
+              <div>
+                <label for="session-id">Session id</label>
+                <input id="session-id" name="session-id" autocomplete="off" />
+              </div>
+              <div class="button-row">
+                <button id="new-session-button" class="secondary-button" type="button">
+                  New session
+                </button>
+                <button id="submit-button" type="submit">Run query</button>
+              </div>
+            </div>
+
+            <div class="advanced-controls">
+              <div>
+                <label for="openai-api-key">OpenAI API key</label>
+                <input
+                  id="openai-api-key"
+                  name="openai-api-key"
+                  type="password"
+                  autocomplete="off"
+                  placeholder="Optional"
+                />
+              </div>
+              <div id="model-name-field" class="hidden">
+                <label for="model-name">Model name</label>
+                <input id="model-name" name="model-name" autocomplete="off" value="gpt-5-nano" />
+              </div>
+            </div>
+          </form>
+
+          <p class="helper">
+            This app is for education only and does not provide investment advice. Sources are
+            included in the final answer when available.
+          </p>
+          <p class="model-status" id="model-status">Model: gpt-5-nano</p>
+          <p class="error" id="error" role="alert"></p>
+        </div>
+
+        <aside class="panel" aria-label="Progress">
+          <h2>Progress</h2>
+          <ul class="progress-list" id="progress-list">
+            <li>Waiting for a query.</li>
+          </ul>
+        </aside>
+      </section>
+
+      <section class="panel" style="margin-top: 18px" aria-label="Final answer">
+        <h2>Answer and Sources</h2>
+        <pre class="answer" id="answer">Final answer will appear here.</pre>
+      </section>
+    </main>
+
+    <script>
+      const form = document.querySelector("#query-form");
+      const queryInput = document.querySelector("#query");
+      const sessionInput = document.querySelector("#session-id");
+      const apiKeyInput = document.querySelector("#openai-api-key");
+      const modelField = document.querySelector("#model-name-field");
+      const modelInput = document.querySelector("#model-name");
+      const submitButton = document.querySelector("#submit-button");
+      const newSessionButton = document.querySelector("#new-session-button");
+      const statusText = document.querySelector("#status");
+      const progressList = document.querySelector("#progress-list");
+      const answer = document.querySelector("#answer");
+      const errorText = document.querySelector("#error");
+      const modelStatus = document.querySelector("#model-status");
+      let transcript = "";
+      let currentQuestion = "";
+      let currentAnswer = "";
+
+      function createSessionId() {
+        if (window.crypto && window.crypto.randomUUID) {
+          return window.crypto.randomUUID();
+        }
+        return `session-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      }
+
+      function setProgress(message, reset = false) {
+        if (reset) {
+          progressList.innerHTML = "";
+        }
+        const item = document.createElement("li");
+        item.textContent = message;
+        progressList.appendChild(item);
+      }
+
+      function startNewSession() {
+        sessionInput.value = createSessionId();
+        queryInput.value = "";
+        apiKeyInput.value = "";
+        modelInput.value = "gpt-5-nano";
+        updateModelVisibility();
+        errorText.textContent = "";
+        transcript = "";
+        currentQuestion = "";
+        currentAnswer = "";
+        answer.textContent = "Final answer will appear here.";
+        statusText.textContent = "Ready";
+        setProgress("Waiting for a query.", true);
+        queryInput.focus();
+      }
+
+      function beginTranscriptEntry(question) {
+        if (currentQuestion) {
+          transcript = transcript ? `${transcript}\n\n${currentQuestion}\n\n${currentAnswer}` : `${currentQuestion}\n\n${currentAnswer}`;
+        }
+        currentQuestion = `Question: ${question}`;
+        currentAnswer = "Answer:\n";
+        renderTranscript();
+      }
+
+      function renderTranscript() {
+        const activeEntry = currentQuestion ? `${currentQuestion}\n\n${currentAnswer}` : "";
+        answer.textContent = transcript && activeEntry ? `${transcript}\n\n${activeEntry}` : transcript || activeEntry || "Final answer will appear here.";
+        answer.scrollTop = answer.scrollHeight;
+      }
+
+      function updateModelVisibility() {
+        const hasApiKey = apiKeyInput.value.trim().length > 0;
+        modelField.classList.toggle("hidden", !hasApiKey);
+        if (!hasApiKey) {
+          modelInput.value = "gpt-5-nano";
+        }
+        updateModelStatus();
+      }
+
+      function updateModelStatus() {
+        const modelName = apiKeyInput.value.trim() ? modelInput.value.trim() || "gpt-5-nano" : "gpt-5-nano";
+        modelStatus.textContent = `Model: ${modelName}`;
+      }
+
+      function setModelStatus(modelName) {
+        modelStatus.textContent = `Model: ${modelName}`;
+      }
+
+      function decodeSseData(raw) {
+        try {
+          return JSON.parse(raw);
+        } catch {
+          return raw;
+        }
+      }
+
+      function handleSseBlock(block, liveSummary) {
+        const lines = block.split("\n");
+        let eventName = "message";
+        const dataLines = [];
+
+        for (const line of lines) {
+          if (line.startsWith("event:")) {
+            eventName = line.slice(6).trim();
+          }
+          if (line.startsWith("data:")) {
+            dataLines.push(line.slice(5).trimStart());
+          }
+        }
+
+        if (dataLines.length === 0) {
+          return liveSummary;
+        }
+
+        const data = decodeSseData(dataLines.join("\n"));
+        if (eventName === "progress") {
+          setProgress(data);
+          statusText.textContent = data;
+          return liveSummary;
+        }
+        if (eventName === "model") {
+          setModelStatus(data);
+          return liveSummary;
+        }
+        if (eventName === "summary_token") {
+          const nextSummary = liveSummary + data;
+          currentAnswer = `Answer:\n${nextSummary}`;
+          renderTranscript();
+          return nextSummary;
+        }
+        if (eventName === "final") {
+          currentAnswer = `Answer:\n${data}`;
+          renderTranscript();
+          statusText.textContent = "Complete";
+          return liveSummary;
+        }
+        return liveSummary;
+      }
+
+      async function runQuery(event) {
+        event.preventDefault();
+        const query = queryInput.value.trim();
+        if (!query) {
+          return;
+        }
+
+        const sessionId = sessionInput.value.trim() || createSessionId();
+        const apiKey = apiKeyInput.value.trim();
+        const modelName = apiKey ? modelInput.value.trim() || "gpt-5-nano" : "gpt-5-nano";
+        sessionInput.value = sessionId;
+        modelInput.value = modelName;
+        submitButton.disabled = true;
+        errorText.textContent = "";
+        queryInput.value = "";
+        beginTranscriptEntry(query);
+        statusText.textContent = "Starting";
+        setProgress("Submitting query...", true);
+
+        try {
+          const response = await fetch("/query", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              query,
+              session_id: sessionId,
+              model_name: apiKey ? modelName : null,
+              openai_api_key: apiKey || null,
+              stream: true,
+            }),
+          });
+
+          if (!response.ok || !response.body) {
+            throw new Error(`Request failed with status ${response.status}`);
+          }
+
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = "";
+          let liveSummary = "";
+
+          while (true) {
+            const { value, done } = await reader.read();
+            if (done) {
+              break;
+            }
+            buffer += decoder.decode(value, { stream: true });
+            const blocks = buffer.split("\n\n");
+            buffer = blocks.pop() || "";
+            for (const block of blocks) {
+              liveSummary = handleSseBlock(block, liveSummary);
+            }
+          }
+
+          if (buffer.trim()) {
+            liveSummary = handleSseBlock(buffer, liveSummary);
+          }
+        } catch (error) {
+          statusText.textContent = "Error";
+          errorText.textContent = error.message;
+          currentAnswer = `Answer:\nRequest failed: ${error.message}`;
+          renderTranscript();
+          setProgress("Request failed.");
+        } finally {
+          submitButton.disabled = false;
+        }
+      }
+
+      sessionInput.value = createSessionId();
+      updateModelVisibility();
+      form.addEventListener("submit", runQuery);
+      apiKeyInput.addEventListener("input", updateModelVisibility);
+      modelInput.addEventListener("input", updateModelStatus);
+      newSessionButton.addEventListener("click", startNewSession);
+    </script>
+  </body>
+</html>
