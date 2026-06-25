@@ -1,4 +1,5 @@
 """FastAPI entry point for the educational financial research app."""
+from app.a2a_server import register_a2a_server
 from app.config import get_settings
 from app.constants import APP_DESCRIPTION, APP_NAME
 from app.graph.builder import invoke_graph, resume_session, stream_graph_sse
@@ -19,6 +20,7 @@ load_dotenv()
 configure_langsmith_environment()
 
 app = FastAPI(title=APP_NAME, description=APP_DESCRIPTION)
+register_a2a_server(app)
 STATIC_DIR = Path(__file__).parent / "static"
 
 

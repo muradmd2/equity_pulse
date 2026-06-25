@@ -1,5 +1,6 @@
 langgraph
 langgraph-checkpoint-sqlite
+a2a-sdk[fastapi]==1.1.0
 langchain
 langchain-openai
 langsmith

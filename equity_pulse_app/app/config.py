@@ -20,6 +20,7 @@ class Settings(BaseSettings):
 
     app_env: str = Field(default="local", alias="APP_ENV")
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
+    a2a_base_url: str = Field(default="http://127.0.0.1:8000", alias="A2A_BASE_URL")
 
     openai_api_key: str | None = Field(default=None, alias="OPENAI_API_KEY")
     openai_model: str = Field(default="gpt-5-nano", alias="OPENAI_MODEL")

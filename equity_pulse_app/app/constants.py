@@ -2,6 +2,10 @@
 
 APP_NAME = "Financial AI Research App"
 APP_DESCRIPTION = "Educational financial research app. Not investment advice."
+A2A_AGENT_NAME = "Equity Pulse Financial Research Agent"
+A2A_AGENT_VERSION = "0.1.0"
+A2A_JSONRPC_PATH = "/a2a/jsonrpc"
+A2A_REST_PATH = "/a2a/rest"
 DEFAULT_LANGSMITH_PROJECT = "financial-langgraph-learning-app"
 DEFAULT_LOOKBACK_DAYS = 30
 TECHNICAL_ANALYSIS_LOOKBACK_DAYS = 180

@@ -11,6 +11,9 @@ FastAPI
   POST /query
   GET /sessions/{session_id}
   GET /health
+  GET /.well-known/agent-card.json
+  POST /a2a/jsonrpc
+  /a2a/rest/*
     |
     v
 LangGraph StateGraph
@@ -155,9 +158,23 @@ FINNHUB_NEWS_LOOKBACK_DAYS=30
 SEC_EDGAR_TIMEOUT_SECONDS=10
 SEC_EDGAR_MIN_REQUEST_INTERVAL_SECONDS=0.1
 SQLITE_CHECKPOINT_DB=checkpoints.sqlite
+A2A_BASE_URL=http://127.0.0.1:8000
 ```
 
 `GET /health` reports missing configuration clearly.
+
+## A2A Protocol
+
+The same FastAPI process exposes the app as an A2A 1.0 agent:
+
+- Agent Card: `GET /.well-known/agent-card.json`
+- JSON-RPC transport: `POST /a2a/jsonrpc`
+- HTTP+JSON transport: `/a2a/rest/*`
+
+Set `A2A_BASE_URL` to the externally reachable server origin in deployed
+environments so discovery clients receive usable interface URLs. A2A context IDs
+are passed to LangGraph as checkpoint session IDs, and completed research is
+returned as a source-cited text artifact.
 
 ## Run FastAPI
 

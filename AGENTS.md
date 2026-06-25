@@ -21,6 +21,7 @@ This app is for learning and research only. It must never present itself as pers
 - Preserve raw retrieved data separately from LLM-generated summaries.
 - Keep string literals, reusable prompts, and LLM instructions in separate files where practical.
 - Use constants for repeated category names, provider names, statuses, and configuration values.
+- Support the Agent2Agent (A2A) protocol for agent discovery and interoperable task exchange. Expose an A2A Agent Card and use A2A message, task, status, artifact, and error semantics at the external boundary while keeping the internal LangGraph workflow modular and provider-agnostic.
 - Do not implement unrelated chunks of the app unless specifically asked.
 - Prefer small incremental changes with focused tests over large broad rewrites.
 
