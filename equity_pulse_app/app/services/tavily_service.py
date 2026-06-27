@@ -3,13 +3,11 @@
 from datetime import UTC, datetime
 from typing import Any
 
-import httpx
-from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
+from tavily import TavilyClient
 
 from app.config import get_settings
 from app.utils.tracing import traced
 
-TAVILY_SEARCH_URL = "https://api.tavily.com/search"
 MAX_QUERY_WORDS = 16
 MAX_QUERY_CHARS = 140
 
@@ -32,39 +30,23 @@ class TavilyService:
 
         settings = get_settings()
         result_limit = max_results if max_results is not None else settings.tavily_max_results
-        payload = {
-            "api_key": self.api_key,
-            "query": concise_query,
-            "search_depth": "basic",
-            "topic": "news",
-            "max_results": result_limit,
-            "include_answer": False,
-            "include_raw_content": False,
-        }
-
-        response_data = self._post(payload)
+        client = TavilyClient(self.api_key)
+        response_data = client.search(
+            query=concise_query,
+            include_answer="basic",
+            search_depth="advanced",
+            max_results=result_limit,
+        )
         raw_results = response_data.get("results") or []
         retrieved_at = _now()
         results = [_normalize_result(item, retrieved_at) for item in raw_results if item]
 
         return {
             "query": concise_query,
+            "answer": response_data.get("answer"),
             "results": results,
             "retrieved_at": retrieved_at,
         }
-
-    @retry(
-        retry=retry_if_exception_type((httpx.TimeoutException, httpx.TransportError, httpx.HTTPStatusError)),
-        stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=0.5, min=0.5, max=4),
-        reraise=True,
-    )
-    @traced("tavily.post", run_type="tool")
-    def _post(self, payload: dict[str, Any]) -> dict[str, Any]:
-        with httpx.Client(timeout=self.timeout_seconds) as client:
-            response = client.post(TAVILY_SEARCH_URL, json=payload)
-            response.raise_for_status()
-            return response.json()
 
 
 def _validate_concise_query(query: str) -> str:

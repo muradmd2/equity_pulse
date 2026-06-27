@@ -16,6 +16,7 @@ class FinancialResearchState(TypedDict, total=False):
     model_name: str | None
     session_id: str
     rewritten_query: str | None
+    web_search_query: str | None
     detected_tickers: list[str]
     detected_companies: list[str]
     categories: list[CategoryName]

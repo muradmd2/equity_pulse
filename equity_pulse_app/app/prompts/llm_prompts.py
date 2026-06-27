@@ -56,22 +56,25 @@ JSON context:
 {context}
 """
 
-REVIEW_PROMPT = """Review whether the summary fully answers the user's original financial research query.
+REVIEW_PROMPT = """Review whether the summary answers the user's financial research query.
 
 Return structured output with:
 - missing_info_found
 - missing_info
-- rewritten_query
+- web_search_query
 - reasoning
 
 Review rules:
-- Compare the original query against the summary.
-- Mark missing_info_found as true only for major gaps that would make the answer materially incomplete.
-- Treat unavailable provider data as acceptable if the summary clearly explains the limitation.
+- Compare the query against the summary_response.
+- Look only for missing information caused by lack of data in the retrieved resources.
+- If provided data does not contains the information requested, then consider this as missing info.
+- If the information requested is not released or available yet, even then consider this as missing info.
+- Mark missing_info_found as true only when a missing part of the query would make the summary materially incomplete.
 - Do not require extra categories or facts that the user did not ask for.
 - Do not add investment advice or unsupported financial claims.
-- If missing_info_found is true, provide a focused rewritten_query that asks only for the missing information.
-- If missing_info_found is false, rewritten_query must be null and missing_info must be empty.
+- If missing_info_found is true, provide one concise Tavily web_search_query for only the unanswered part.
+- Keep web_search_query search-oriented, no more than 16 words, and not a long instruction.
+- If missing_info_found is false, web_search_query must be null and missing_info must be empty.
 
 JSON context:
 {context}

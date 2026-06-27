@@ -17,3 +17,4 @@ httpx
 requests
 tenacity
 pytest
+tavily-python

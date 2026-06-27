@@ -21,6 +21,7 @@ CATEGORY_ANALYST_RATINGS = "analyst_ratings"
 CATEGORY_LATEST_REPORT_RELEASE = "latest_report_release"
 CATEGORY_DOW_JONES_INDEX = "dow_jones_index"
 CATEGORY_TECHNICAL_ANALYSIS = "technical_analysis"
+CATEGORY_WEB_SEARCH = "web_search"
 
 CATEGORIES = (
     CATEGORY_COMPANY_INFORMATION,

@@ -27,10 +27,9 @@ from app.graph.nodes.build_subqueries import build_subqueries_node
 from app.graph.nodes.classify import classify_query_node
 from app.graph.nodes.category_stubs import CATEGORY_NODE_NAMES, CATEGORY_NODES
 from app.graph.nodes.final import final_response_node
-from app.graph.nodes.review import review_node, should_retry_after_review
-from app.graph.nodes.rewrite import REGENERATION_MESSAGE
-from app.graph.nodes.rewrite import rewrite_query_node
+from app.graph.nodes.review import review_node, should_search_after_review
 from app.graph.nodes.summarize import summary_node
+from app.graph.nodes.web_search import web_search_node
 from app.models.state import FinancialResearchState
 from app.utils.runtime_secrets import clear_request_openai_api_key, set_request_openai_api_key
 from app.utils.tracing import configure_langsmith_environment, traced
@@ -49,7 +48,7 @@ def build_graph(checkpoint_db_path: str | None = None):
     builder.add_node("aggregate_results", aggregate_results_node)
     builder.add_node("summary", summary_node)
     builder.add_node("review", review_node)
-    builder.add_node("rewrite_query", rewrite_query_node)
+    builder.add_node("web_search", web_search_node)
     builder.add_node("final_response", final_response_node)
 
     builder.add_edge(START, "classify_query")
@@ -68,13 +67,13 @@ def build_graph(checkpoint_db_path: str | None = None):
     )
     builder.add_conditional_edges(
         "review",
-        should_retry_after_review,
+        should_search_after_review,
         {
-            "rewrite_query": "rewrite_query",
+            "web_search": "web_search",
             "final_response": "final_response",
         },
     )
-    builder.add_edge("rewrite_query", "classify_query")
+    builder.add_edge("web_search", "aggregate_results")
     builder.add_edge("final_response", END)
 
     checkpointer = _create_checkpointer(checkpoint_db_path)
@@ -292,10 +291,11 @@ def _events_for_node(node_name: str, node_update: dict[str, object]) -> Iterator
 
     if node_name == "review":
         if node_update.get("missing_info_found"):
-            yield _event("progress", REGENERATION_MESSAGE)
+            yield _event("progress", "Searching the web for missing information...")
         return
 
-    if node_name == "rewrite_query":
+    if node_name == "web_search":
+        yield _event("progress", "Completed web search for missing information.")
         return
 
     if node_name == "final_response":

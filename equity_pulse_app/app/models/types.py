@@ -13,6 +13,7 @@ CategoryName: TypeAlias = Literal[
     "latest_report_release",
     "dow_jones_index",
     "technical_analysis",
+    "web_search",
 ]
 
 ResultStatus: TypeAlias = Literal["success", "partial", "failed"]
